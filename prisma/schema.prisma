@@ -1,0 +1,127 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  name         String
+  role         String     @default("DEMO")
+  createdAt    DateTime   @default(now())
+  projects     Project[]
+  auditLogs    AuditLog[]
+}
+
+model Project {
+  id             String          @id @default(cuid())
+  name           String
+  client         String?
+  priority       String?
+  deadline       DateTime?
+  status         String          @default("DRAFT")
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  ownerId        String?
+  owner          User?           @relation(fields: [ownerId], references: [id])
+  requirements   Requirement[]
+  iterations     Iteration[]
+  gaps           Gap[]
+  artifacts      Artifact[]
+  auditLogs      AuditLog[]
+  memoryInsights MemoryInsight[]
+}
+
+model Requirement {
+  id                 String   @id @default(cuid())
+  projectId          String
+  externalId         String
+  type               String
+  name               String
+  description        String
+  acceptanceCriteria String?
+  businessRule       String?
+  priority           String?
+  status             String?
+  assumptions        String?
+  raw                String?
+  createdAt          DateTime @default(now())
+  project            Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  gaps               Gap[]
+}
+
+model Iteration {
+  id               String   @id @default(cuid())
+  projectId        String
+  number           Int
+  status           String   @default("RUNNING")
+  gapCount         Int      @default(0)
+  criticalGapCount Int      @default(0)
+  createdAt        DateTime @default(now())
+  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  gaps             Gap[]
+
+  @@unique([projectId, number])
+}
+
+model Gap {
+  id            String       @id @default(cuid())
+  projectId     String
+  iterationId   String?
+  requirementId String?
+  code          String
+  type          String
+  severity      String
+  status        String       @default("OPEN")
+  description   String
+  question      String
+  response      String?
+  respondedAt   DateTime?
+  createdAt     DateTime     @default(now())
+  project       Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  iteration     Iteration?   @relation(fields: [iterationId], references: [id], onDelete: SetNull)
+  requirement   Requirement? @relation(fields: [requirementId], references: [id], onDelete: SetNull)
+}
+
+model Artifact {
+  id        String   @id @default(cuid())
+  projectId String
+  type      String
+  title     String
+  content   String
+  format    String   @default("markdown")
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  projectId String?
+  userId    String?
+  agent     String
+  action    String
+  details   String?
+  createdAt DateTime @default(now())
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model MemoryInsight {
+  id        String   @id @default(cuid())
+  projectId String
+  type      String
+  content   String
+  keywords  String
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
