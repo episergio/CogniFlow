@@ -1,7 +1,10 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "../src/generated/prisma/client";
 import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient();
+import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+const connectionString = process.env.DATABASE_URL?.replace("file:", "") || "prisma/dev.db";
+const adapter = new PrismaBetterSqlite3({ url: connectionString });
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
     const demoEmail = process.env.DEMO_EMAIL || "demo@cogniflow.app";

@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CogniFlow MVP
 
-## Getting Started
+CogniFlow es un sistema cognitivo MVP para análisis funcional. Permite ingestar requisitos, detectar GAPS de calidad, iterar con el usuario y generar artefactos documentales básicos (SRS, Diagramas de flujo).
 
-First, run the development server:
+## Funcionalidades
+- **Autenticación Demo**: Sistema básico para demostración.
+- **Ingesta de Requisitos**: Carga estructurada validada con esquemas.
+- **Motor ACCR**: Detección de GAPs, ambigüedades e inconsistencias por reglas.
+- **Generación de Artefactos**: Creación de Markdown y diagramas Mermaid automáticos si no hay GAPs críticos.
+- **Auditoría y Memoria**: Logs de acciones e insights sencillos de iteraciones previas.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Stack
+- Next.js 16 (App Router)
+- React 19
+- TypeScript
+- Tailwind CSS v4
+- Prisma ORM + SQLite
+- Zod, bcryptjs, React Markdown
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Cómo instalar y ejecutar
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Instalar dependencias:
+   ```bash
+   npm install
+   ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+2. Configurar variables de entorno:
+   Copiar `.env.example` a `.env`:
+   ```bash
+   cp .env.example .env
+   ```
+   (La app funciona en modo básico sin OPENAI_API_KEY).
 
-## Learn More
+3. Inicializar Base de Datos (SQLite local):
+   ```bash
+   npx prisma migrate dev
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+4. Cargar datos de prueba (Usuario Demo y Proyectos previos):
+   ```bash
+   npm run db:seed
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+5. Ejecutar en desarrollo:
+   ```bash
+   npm run dev
+   ```
+   Abrir [http://localhost:3000](http://localhost:3000)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Credenciales Demo
+- **Email:** demo@cogniflow.app
+- **Password:** Demo1234!
 
-## Deploy on Vercel
+## Flujo de Demostración
+1. Entrar a [http://localhost:3000](http://localhost:3000) e Iniciar Sesión.
+2. Ir a "Nuevo Proyecto".
+3. Dentro del proyecto, usar el botón "Cargar Requisitos Demo" para simular la ingesta de JSON.
+4. Presionar "Ejecutar Análisis".
+5. Revisar los GAPS en la sección correspondiente. Responderlos y volver a analizar si es necesario.
+6. Cuando no queden GAPS críticos, hacer click en "Generar Artefactos".
+7. Verificar los logs en "Auditoría" y los aprendizajes en "Memoria".
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Ciberseguridad (Riesgos Mínimos)
+Para la presentación del MVP se consideran los siguientes controles:
+- **Prompt Injection:** N/A (el sistema depende principalmente del motor de reglas en su configuración por defecto).
+- **Exposición de API keys:** Las variables críticas se guardan en `.env` y el LLM opcional se ejecuta desde servidor.
+- **Autenticación:** Las contraseñas están hasheadas en base de datos.
+- **Cross-site Scripting:** React escapa el contenido por defecto, se tiene cuidado extra al renderizar Markdown.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Licencia
+Uso académico interno.
