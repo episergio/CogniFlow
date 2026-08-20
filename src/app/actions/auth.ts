@@ -10,7 +10,9 @@ const loginSchema = z.object({
   password: z.string().min(1, "La contraseña es requerida"),
 });
 
-export async function loginAction(prevState: any, formData: FormData) {
+export type LoginState = { error?: string; success?: boolean };
+
+export async function loginAction(prevState: LoginState, formData: FormData): Promise<LoginState> {
   try {
     const data = Object.fromEntries(formData.entries());
     const result = loginSchema.safeParse(data);

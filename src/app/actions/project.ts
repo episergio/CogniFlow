@@ -5,9 +5,10 @@ import { getUser } from "@/lib/auth";
 import { logAudit } from "@/lib/agents/auditAgent";
 import { ingestRequirements } from "@/lib/agents/ingestAgent";
 import { runACCRAgent } from "@/lib/agents/accrAgent";
-import { generateSRS } from "@/lib/agents/srsAgent";
+import { generateSRS, generateTraceability } from "@/lib/agents/srsAgent";
 import { generateBPMN } from "@/lib/agents/bpmnAgent";
 import { saveInsight } from "@/lib/agents/memoryAgent";
+import { applyGapResponse, countOpenCriticalGaps, GAP_KEYWORDS } from "@/lib/gapResolution";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -17,7 +18,19 @@ const createProjectSchema = z.object({
   priority: z.string().optional(),
 });
 
-export async function createProjectAction(prevState: any, formData: FormData) {
+async function getOwnedProject(projectId: string, userId: string) {
+  const project = await db.project.findUnique({ where: { id: projectId } });
+  if (!project) return null;
+  if (project.ownerId && project.ownerId !== userId) return null;
+  return project;
+}
+
+export type CreateProjectState = { error?: string; success?: boolean; projectId?: string };
+
+export async function createProjectAction(
+  prevState: CreateProjectState,
+  formData: FormData
+): Promise<CreateProjectState> {
   try {
     const user = await getUser();
     if (!user) return { error: "No autorizado" };
@@ -60,6 +73,9 @@ export async function loadDemoRequirementsAction(projectId: string) {
     const user = await getUser();
     if (!user) return { error: "No autorizado" };
 
+    const project = await getOwnedProject(projectId, user.id);
+    if (!project) return { error: "Proyecto no encontrado", success: false };
+
     const demoReqs = [
       { externalId: "REQ-001", type: "RF", name: "Alta de cliente", description: "El sistema debe permitir registrar un cliente." },
       { externalId: "REQ-002", type: "RF", name: "Validación de CUIT", description: "El sistema debería validar el CUIT de manera apropiada y rápida." },
@@ -76,10 +92,64 @@ export async function loadDemoRequirementsAction(projectId: string) {
   }
 }
 
+export type LoadRequirementsState = {
+  error?: string;
+  success?: boolean;
+  created?: number;
+  errors?: string[];
+};
+
+export async function loadRequirementsFromJsonAction(
+  prevState: LoadRequirementsState,
+  formData: FormData
+): Promise<LoadRequirementsState> {
+  try {
+    const user = await getUser();
+    if (!user) return { error: "No autorizado" };
+
+    const projectId = String(formData.get("projectId") || "");
+    const raw = String(formData.get("requirements") || "");
+
+    const project = await getOwnedProject(projectId, user.id);
+    if (!project) return { error: "Proyecto no encontrado" };
+
+    const maxSizeMb = Number(process.env.MAX_FILE_SIZE_MB || 1);
+    if (raw.length > maxSizeMb * 1024 * 1024) {
+      return { error: `El contenido excede el límite de ${maxSizeMb}MB`, success: false };
+    }
+
+    let parsedJson: unknown;
+    try {
+      parsedJson = JSON.parse(raw);
+    } catch {
+      return { error: "JSON inválido: revisá la sintaxis del array de requisitos.", success: false };
+    }
+
+    const items = Array.isArray(parsedJson) ? parsedJson : [parsedJson];
+    if (items.length === 0) {
+      return { error: "El array de requisitos está vacío.", success: false };
+    }
+
+    const result = await ingestRequirements(projectId, user.id, items);
+    revalidatePath(`/projects/${projectId}`);
+    return {
+      success: result.success,
+      created: result.created,
+      errors: result.errors,
+    };
+  } catch (error) {
+    console.error(error);
+    return { error: "Error interno del servidor", success: false };
+  }
+}
+
 export async function analyzeProjectAction(projectId: string) {
   try {
     const user = await getUser();
     if (!user) return { error: "No autorizado" };
+
+    const project = await getOwnedProject(projectId, user.id);
+    if (!project) return { error: "Proyecto no encontrado", success: false };
 
     const result = await runACCRAgent(projectId, user.id);
     revalidatePath(`/projects/${projectId}`);
@@ -95,23 +165,38 @@ export async function answerGapAction(gapId: string, response: string, projectId
     const user = await getUser();
     if (!user) return { error: "No autorizado" };
 
-    const gap = await db.gap.update({
-      where: { id: gapId },
-      data: {
-        response,
-        status: "RESOLVED",
-        respondedAt: new Date(),
-      }
-    });
+    const project = await getOwnedProject(projectId, user.id);
+    if (!project) return { error: "Proyecto no encontrado", success: false };
 
-    // Guardar insight en memoria (MVP básico: si es de regla de negocio u otro)
-    if (gap.type === "REGLA_NEGOCIO") {
-      await saveInsight(projectId, "GAP_RESUELTO", `Se resolvió un GAP de regla de negocio: ${gap.description}. Respuesta: ${response}`, "rn, regla, negocio, escenario");
+    const trimmed = response?.trim();
+    if (!trimmed) return { error: "La respuesta no puede estar vacía", success: false };
+
+    const gap = await db.gap.findUnique({ where: { id: gapId } });
+    if (!gap || gap.projectId !== projectId) {
+      return { error: "GAP no encontrado", success: false };
+    }
+    if (gap.status !== "OPEN") {
+      return { error: "El GAP ya fue respondido", success: false };
     }
 
+    // Aplica la respuesta al requisito para que la próxima iteración converja.
+    await applyGapResponse(gap, trimmed);
+
+    // Memoria básica: guarda insight con palabras clave según tipo de GAP.
+    const keywords = GAP_KEYWORDS[gap.type] || "gap, resuelto";
+    await saveInsight(
+      projectId,
+      "GAP_RESUELTO",
+      `GAP ${gap.code} (${gap.type}) resuelto. Pregunta: ${gap.question} Respuesta: ${trimmed}`,
+      keywords
+    );
+
     await logAudit({
-      projectId, userId: user.id, agent: "Usuario", action: "Respuesta a GAP",
-      details: `GAP ${gap.code} respondido.`
+      projectId,
+      userId: user.id,
+      agent: "Usuario",
+      action: "Respuesta a GAP",
+      details: `GAP ${gap.code} respondido y aplicado al requisito.`,
     });
 
     revalidatePath(`/projects/${projectId}`);
@@ -127,7 +212,28 @@ export async function generateArtifactsAction(projectId: string) {
     const user = await getUser();
     if (!user) return { error: "No autorizado" };
 
+    const project = await getOwnedProject(projectId, user.id);
+    if (!project) return { error: "Proyecto no encontrado", success: false };
+
+    // Regla dura en servidor: los GAPS críticos abiertos bloquean la generación.
+    const openCritical = await countOpenCriticalGaps(projectId);
+    if (openCritical > 0) {
+      await logAudit({
+        projectId,
+        userId: user.id,
+        agent: "Sistema",
+        action: "Generación bloqueada",
+        details: `Intento de generación con ${openCritical} GAPS críticos abiertos.`,
+      });
+      revalidatePath(`/projects/${projectId}`);
+      return {
+        error: `Bloqueado: existen ${openCritical} GAPS críticos sin resolver. Respondelos y reanalizá antes de generar artefactos.`,
+        success: false,
+      };
+    }
+
     await generateSRS(projectId, user.id);
+    await generateTraceability(projectId, user.id);
     await generateBPMN(projectId, user.id);
 
     revalidatePath(`/projects/${projectId}`);

@@ -14,7 +14,7 @@ const RequirementSchema = z.object({
   assumptions: z.string().optional(),
 });
 
-export async function ingestRequirements(projectId: string, userId: string, data: any[]) {
+export async function ingestRequirements(projectId: string, userId: string, data: unknown[]) {
   const normalized = [];
   const errors = [];
   const seenIds = new Set();
@@ -23,7 +23,7 @@ export async function ingestRequirements(projectId: string, userId: string, data
   for (let i = 0; i < data.length; i++) {
     const item = data[i];
     const parsed = RequirementSchema.safeParse(item);
-    
+
     if (!parsed.success) {
       errors.push(`Fila ${i + 1}: ${parsed.error.issues.map(e => e.message).join(", ")}`);
       continue;
@@ -50,23 +50,53 @@ export async function ingestRequirements(projectId: string, userId: string, data
     });
   }
 
+  let created = 0;
+
   if (normalized.length > 0) {
-    await db.requirement.createMany({
-      data: normalized,
-    });
-    
-    await logAudit({
-      projectId,
-      userId,
-      agent: "IngestAgent",
-      action: "Carga de requisitos",
-      details: `Cargados ${normalized.length} requisitos. Errores: ${errors.length}`,
-    });
+    // Duplicados contra requisitos ya persistidos en el proyecto.
+    const [dbIds, dbNames] = await Promise.all([
+      db.requirement.findMany({
+        where: { projectId, externalId: { in: normalized.map(r => r.externalId) } },
+        select: { externalId: true },
+      }),
+      db.requirement.findMany({
+        where: { projectId, name: { in: normalized.map(r => r.name) } },
+        select: { name: true },
+      }),
+    ]);
+    const dbIdSet = new Set(dbIds.map(r => r.externalId));
+    const dbNameSet = new Set(dbNames.map(r => r.name));
+
+    const toCreate = [];
+    for (const req of normalized) {
+      if (dbIdSet.has(req.externalId)) {
+        errors.push(`externalId ya existe en el proyecto (${req.externalId})`);
+        continue;
+      }
+      if (dbNameSet.has(req.name)) {
+        errors.push(`name ya existe en el proyecto (${req.name})`);
+        continue;
+      }
+      toCreate.push(req);
+    }
+
+    if (toCreate.length > 0) {
+      await db.requirement.createMany({ data: toCreate });
+      created = toCreate.length;
+
+      await logAudit({
+        projectId,
+        userId,
+        agent: "IngestAgent",
+        action: "Carga de requisitos",
+        details: `Cargados ${created} requisitos. Errores: ${errors.length}`,
+      });
+    }
   }
 
   return {
     success: errors.length === 0,
-    created: normalized.length,
+    created,
     errors,
   };
 }

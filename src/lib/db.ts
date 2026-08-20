@@ -5,7 +5,6 @@ const connectionString = process.env.DATABASE_URL?.replace("file:", "") || "pris
 const adapter = new PrismaBetterSqlite3({ url: connectionString });
 
 declare global {
-  // eslint-disable-next-line no-var
   var prisma: PrismaClient | undefined;
 }
 

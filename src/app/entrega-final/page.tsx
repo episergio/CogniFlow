@@ -71,21 +71,22 @@ export default function EntregaFinalPage() {
           <h2 className="text-2xl font-semibold text-white mb-4">4. Criterios de Aceptación (Checklist)</h2>
           <ul className="space-y-2 text-gray-300">
             <li className="flex items-center gap-2">✅ Sistema ejecutable en local sin errores.</li>
-            <li className="flex items-center gap-2">✅ Inicio de sesión de usuario Demo.</li>
+            <li className="flex items-center gap-2">✅ Inicio de sesión de usuario Demo (sesión firmada HMAC).</li>
             <li className="flex items-center gap-2">✅ Creación de proyecto.</li>
-            <li className="flex items-center gap-2">✅ Carga de requisitos.</li>
+            <li className="flex items-center gap-2">✅ Carga de requisitos demo y propios (JSON validado con Zod).</li>
             <li className="flex items-center gap-2">✅ Detección de GAPS con severidad por Agente ACCR.</li>
-            <li className="flex items-center gap-2">✅ Interfaz para responder GAPS y re-analizar.</li>
-            <li className="flex items-center gap-2">✅ Generación de SRS (Markdown) y Flujo (Mermaid).</li>
-            <li className="flex items-center gap-2">✅ Registro de logs (Agente de Auditoría).</li>
-            <li className="flex items-center gap-2">✅ Fallback local (sin obligatoriedad de API LLM real).</li>
+            <li className="flex items-center gap-2">✅ Responder GAPS aplica la respuesta al requisito; re-análisis en nuevas iteraciones (máx. 5, luego escala a humano).</li>
+            <li className="flex items-center gap-2">✅ GAPS críticos abiertos bloquean la generación en servidor.</li>
+            <li className="flex items-center gap-2">✅ Generación de SRS, Matriz de Trazabilidad y Diagrama Mermaid renderizado en el navegador.</li>
+            <li className="flex items-center gap-2">✅ Registro de logs (Agente de Auditoría) con exportación a CSV.</li>
+            <li className="flex items-center gap-2">✅ Fallback local sin API LLM real; LLM opcional con fallback a reglas.</li>
           </ul>
         </section>
 
         <section className="bg-gray-800 rounded-xl p-6 border border-gray-700 mb-8">
           <h2 className="text-2xl font-semibold text-white mb-4">5. Seguridad MVP</h2>
           <ul className="list-disc pl-5 space-y-2 text-gray-300">
-            <li><strong>Autenticación:</strong> Hasheo de contraseña con bcryptjs, uso de HttpOnly Cookies (sesión básica).</li>
+            <li><strong>Autenticación:</strong> Hasheo de contraseña con bcryptjs, cookies HttpOnly firmadas con HMAC-SHA256 (SESSION_SECRET).</li>
             <li><strong>Protección de rutas:</strong> Middleware intercepta páginas protegidas.</li>
             <li><strong>Datos Demo:</strong> Solo se utiliza data sintética (cargada vía Prisma seed) para mitigar riesgos de fugas.</li>
             <li><strong>Server Actions:</strong> Lógica ejecutada en servidor, sin exposición de direct queries al cliente.</li>
