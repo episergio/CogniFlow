@@ -1,6 +1,14 @@
 import bcrypt from "bcryptjs";
+import { Prisma } from "../generated/prisma/client";
 import { db } from "./db";
 import { logAudit } from "./agents/auditAgent";
+
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002"
+  );
+}
 
 const DDL: string[] = [
   `CREATE TABLE IF NOT EXISTS "User" (
@@ -101,8 +109,9 @@ const DDL: string[] = [
   `CREATE UNIQUE INDEX IF NOT EXISTS "Iteration_projectId_number_key" ON "Iteration"("projectId", "number")`,
 ];
 
-// IDs determinísticos: en serverless cada instancia tiene su propia BD efímera,
-// pero la sesión (cookie con userId) debe resolver en cualquiera de ellas.
+// IDs determinísticos para el usuario/proyecto demo: la sesión guarda el userId
+// y con IDs fijos resuelve igual en BDs efímeras por instancia o en la BD
+// remota compartida.
 const DEMO_USER_ID = "user-demo";
 const DEMO_PROJECT_ID = "project-demo-cogniflow";
 
@@ -113,29 +122,37 @@ async function seedDemoData() {
   const existingUser = await db.user.findUnique({ where: { email: demoEmail } });
   const demoUser =
     existingUser ||
-    (await db.user.create({
-      data: {
-        id: DEMO_USER_ID,
-        email: demoEmail,
-        passwordHash: await bcrypt.hash(demoPassword, 10),
-        name: "Usuario Demo",
-        role: "DEMO",
-      },
-    }));
+    (await db.user
+      .create({
+        data: {
+          id: DEMO_USER_ID,
+          email: demoEmail,
+          passwordHash: await bcrypt.hash(demoPassword, 10),
+          name: "Usuario Demo",
+          role: "DEMO",
+        },
+      })
+      // Race benigno: otra lambda fría puede sembrar el mismo usuario contra
+      // la BD remota compartida; recuperar su fila en lugar de fallar.
+      .catch(async (error) => {
+        if (!isUniqueViolation(error)) throw error;
+        return db.user.findUniqueOrThrow({ where: { email: demoEmail } });
+      }));
 
   const existingProject = await db.project.findFirst({
     where: { name: "Proyecto Demo CogniFlow" },
   });
 
   if (!existingProject) {
-    await db.project.create({
-      data: {
-        id: DEMO_PROJECT_ID,
-        name: "Proyecto Demo CogniFlow",
-        client: "Cliente Demo",
-        priority: "ALTA",
-        status: "DRAFT",
-        ownerId: demoUser.id,
+    await db.project
+      .create({
+        data: {
+          id: DEMO_PROJECT_ID,
+          name: "Proyecto Demo CogniFlow",
+          client: "Cliente Demo",
+          priority: "ALTA",
+          status: "DRAFT",
+          ownerId: demoUser.id,
         requirements: {
           create: [
             {
@@ -183,8 +200,13 @@ async function seedDemoData() {
             },
           ],
         },
-      },
-    });
+        },
+      })
+      .catch((error) => {
+        // Race benigno contra la BD remota compartida: otra lambda ya sembró
+        // el proyecto demo con el mismo id.
+        if (!isUniqueViolation(error)) throw error;
+      });
   }
 }
 

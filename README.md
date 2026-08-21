@@ -99,8 +99,8 @@ CogniFlow es un sistema cognitivo MVP para análisis funcional. Permite ingestar
 
 CogniFlow soporta dos modos de base de datos según el valor de `DATABASE_URL`:
 
-- **SQLite local** (`file:./dev.db`, default): pensado para desarrollo y demo en máquina. En serverless el FS es efímero; la app auto-crea esquema + usuario demo en `/tmp` al primer request (modo best-effort: los datos viven por instancia de lambda y se reinician en cold starts). Sirve como demo rápida sin configurar nada más.
-- **libSQL/Turso remota** (`DATABASE_URL="libsql://..."` + `LIBSQL_AUTH_TOKEN`): persistencia real, recomendada para demo pública estable. Creá una base gratis en [turso.tech](https://turso.tech), apuntá `DATABASE_URL` a `libsql://...` y definí `LIBSQL_AUTH_TOKEN`. El esquema se auto-provisiona idempotentemente al primer arranque (también podés correr `npx prisma migrate deploy`).
+- **SQLite local** (`file:./dev.db`, default): pensado para desarrollo y demo en máquina. En serverless el FS es efímero; la app auto-crea esquema + usuario demo en `/tmp` al primer request (modo best-effort: los datos viven por instancia de lambda y se reinician en cold starts). Sirve como fallback sin configurar nada más.
+- **libSQL/Turso remota** (`DATABASE_URL="libsql://..."` + `LIBSQL_AUTH_TOKEN`): persistencia real. Es la configuración activa de la demo pública: base `cogniflow` en Turso (grupo `default`, región `aws-us-east-1`). El esquema y los datos demo se auto-provisionan idempotentemente al primer arranque (también podés correr `npx prisma migrate deploy`).
 
 Pasos sugeridos para Vercel:
 
