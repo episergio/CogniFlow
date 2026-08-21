@@ -19,8 +19,19 @@ function firstWritableDir(candidates: string[]): string | null {
   return null;
 }
 
+function isServerless(): boolean {
+  return Boolean(
+    process.env.LAMBDA_TASK_ROOT ||
+      process.env.NOW_REGION ||
+      (process.env.AWS_REGION &&
+        String(process.env.AWS_EXECUTION_ENV || "").startsWith("AWS_Lambda"))
+  );
+}
+
 function resolveAdapter() {
-  const url = process.env.DATABASE_URL || "";
+  // Indirección para evitar reemplazo estático del literal durante el bundling.
+  const env = process.env;
+  const url = env["DATABASE" + "_URL"] || "";
 
   // BD remota (p. ej. Turso): DATABASE_URL="libsql://<db>-<org>.turso.io"
   if (url.startsWith("libsql:")) {
@@ -33,17 +44,21 @@ function resolveAdapter() {
 
   let filePath = url.startsWith("file:") ? url.slice("file:".length) : "";
 
-  if (!filePath) {
-    // Sin DATABASE_URL: usar el primer directorio escribible disponible.
-    // En serverless (Vercel) el único escribible suele ser /tmp.
+  // En serverless una ruta relativa cae en un FS de solo lectura
+  // (SQLITE_CANTOPEN): redirigir siempre al directorio temporal escribible.
+  if (!filePath || (isServerless() && !path.isAbsolute(filePath))) {
     const tmpDir = firstWritableDir(["/tmp", os.tmpdir()]);
-    filePath = tmpDir ? path.join(tmpDir, "cogniflow.db") : "dev.db";
+    filePath = tmpDir ? path.join(tmpDir, "cogniflow.db") : filePath || "dev.db";
   } else {
     const ensured = firstWritableDir([path.dirname(filePath)]);
     filePath = ensured ? path.join(ensured, path.basename(filePath)) : filePath;
   }
 
-  console.log(`[cogniflow] DB: sqlite en ${filePath}`);
+  console.log(
+    `[cogniflow] DB: sqlite en ${filePath} (DATABASE_URL=${
+      url ? `"${url.slice(0, 16)}..."` : "<no definida>"
+    })`
+  );
   return new PrismaBetterSqlite3({ url: filePath });
 }
 
@@ -51,6 +66,7 @@ declare global {
   var prisma: PrismaClient | undefined;
 }
 
-export const db = globalThis.prisma || new PrismaClient({ adapter: resolveAdapter() });
+export const db =
+  globalThis.prisma || new PrismaClient({ adapter: resolveAdapter() });
 
 if (process.env.NODE_ENV !== "production") globalThis.prisma = db;
