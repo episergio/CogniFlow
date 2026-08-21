@@ -97,12 +97,16 @@ CogniFlow es un sistema cognitivo MVP para análisis funcional. Permite ingestar
 
 ## Deploy público
 
-El MVP usa SQLite en archivo, pensado para demo local. Para deploy público tené en cuenta:
+CogniFlow soporta dos modos de base de datos según el valor de `DATABASE_URL`:
 
-- **Plataformas con disco persistente** (Render, Railway, VPS): funcionan con SQLite tal cual; montá un volumen para `dev.db`.
-- **Plataformas serverless** (Vercel): el filesystem es efímero; migrar a una BD administrada (p. ej. Postgres/Turso) cambiando el datasource y el adapter de Prisma.
-- Definí `SESSION_SECRET`, `NEXT_PUBLIC_APP_URL` y `NEXT_PUBLIC_GITHUB_URL` en el entorno del deploy.
-- Verificá `npm run build` antes de publicar.
+- **SQLite local** (`file:./dev.db`, default): pensado para desarrollo y demo en máquina. En serverless el FS es efímero; la app auto-crea esquema + usuario demo en `/tmp` al primer request (modo best-effort: los datos viven por instancia de lambda y se reinician en cold starts). Sirve como demo rápida sin configurar nada más.
+- **libSQL/Turso remota** (`DATABASE_URL="libsql://..."` + `LIBSQL_AUTH_TOKEN`): persistencia real, recomendada para demo pública estable. Creá una base gratis en [turso.tech](https://turso.tech), apuntá `DATABASE_URL` a `libsql://...` y definí `LIBSQL_AUTH_TOKEN`. El esquema se auto-provisiona idempotentemente al primer arranque (también podés correr `npx prisma migrate deploy`).
+
+Pasos sugeridos para Vercel:
+
+1. Subí el repo a GitHub e importalo en Vercel.
+2. Definí las variables de entorno: `SESSION_SECRET` (obligatoria), `DATABASE_URL` + `LIBSQL_AUTH_TOKEN` si usás Turso, `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_GITHUB_URL`.
+3. Verificá `npm run build` en verde antes de publicar.
 
 ## Licencia
 

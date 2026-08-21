@@ -3,6 +3,7 @@
  */
 import bcrypt from "bcryptjs";
 import { db } from "../src/lib/db";
+import { ensureDb } from "../src/lib/dbBootstrap";
 import { ingestRequirements } from "../src/lib/agents/ingestAgent";
 import { runACCRAgent } from "../src/lib/agents/accrAgent";
 import { generateSRS, generateTraceability } from "../src/lib/agents/srsAgent";
@@ -37,6 +38,8 @@ function check(name: string, cond: boolean, extra = "") {
 }
 
 async function main() {
+  await ensureDb();
+
   // ---------- Escenario 1: flujo feliz converge ----------
   const email = `smoke-${Date.now()}@cogniflow.test`;
   const user = await db.user.create({

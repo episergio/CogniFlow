@@ -1,6 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
+import { ensureDb } from "@/lib/dbBootstrap";
 import { setSession } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
@@ -14,6 +15,7 @@ export type LoginState = { error?: string; success?: boolean };
 
 export async function loginAction(prevState: LoginState, formData: FormData): Promise<LoginState> {
   try {
+    await ensureDb();
     const data = Object.fromEntries(formData.entries());
     const result = loginSchema.safeParse(data);
 

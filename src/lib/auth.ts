@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import crypto from "crypto";
 import { db } from "./db";
+import { ensureDb } from "./dbBootstrap";
 
 const COOKIE_NAME = "cogniflow_session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 1 semana
@@ -52,6 +53,7 @@ export async function getSession() {
 }
 
 export async function getUser() {
+  await ensureDb();
   const userId = await getSession();
   if (!userId) return null;
   try {
