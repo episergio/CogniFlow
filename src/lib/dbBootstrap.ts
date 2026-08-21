@@ -101,6 +101,11 @@ const DDL: string[] = [
   `CREATE UNIQUE INDEX IF NOT EXISTS "Iteration_projectId_number_key" ON "Iteration"("projectId", "number")`,
 ];
 
+// IDs determinísticos: en serverless cada instancia tiene su propia BD efímera,
+// pero la sesión (cookie con userId) debe resolver en cualquiera de ellas.
+const DEMO_USER_ID = "user-demo";
+const DEMO_PROJECT_ID = "project-demo-cogniflow";
+
 async function seedDemoData() {
   const demoEmail = process.env.DEMO_EMAIL || "demo@cogniflow.app";
   const demoPassword = process.env.DEMO_PASSWORD || "Demo1234!";
@@ -110,6 +115,7 @@ async function seedDemoData() {
     existingUser ||
     (await db.user.create({
       data: {
+        id: DEMO_USER_ID,
         email: demoEmail,
         passwordHash: await bcrypt.hash(demoPassword, 10),
         name: "Usuario Demo",
@@ -124,6 +130,7 @@ async function seedDemoData() {
   if (!existingProject) {
     await db.project.create({
       data: {
+        id: DEMO_PROJECT_ID,
         name: "Proyecto Demo CogniFlow",
         client: "Cliente Demo",
         priority: "ALTA",
@@ -132,12 +139,14 @@ async function seedDemoData() {
         requirements: {
           create: [
             {
+              id: "req-demo-001",
               externalId: "REQ-001",
               type: "RF",
               name: "Alta de cliente",
               description: "El sistema debe permitir registrar un cliente.",
             },
             {
+              id: "req-demo-002",
               externalId: "REQ-002",
               type: "RF",
               name: "Validación de CUIT",
@@ -145,6 +154,7 @@ async function seedDemoData() {
                 "El sistema debería validar el CUIT de manera apropiada y rápida.",
             },
             {
+              id: "req-demo-003",
               externalId: "REQ-003",
               type: "RN",
               name: "CUIT inválido",
@@ -153,6 +163,7 @@ async function seedDemoData() {
                 "Si el CUIT es inválido, el sistema debe mostrar error.",
             },
             {
+              id: "req-demo-004",
               externalId: "REQ-004",
               type: "SUP",
               name: "Cliente entrega datos fiscales",
@@ -164,6 +175,7 @@ async function seedDemoData() {
         memoryInsights: {
           create: [
             {
+              id: "insight-demo-001",
               type: "GAP_RESUELTO",
               content:
                 "En reglas de negocio, conviene validar escenario positivo y negativo.",

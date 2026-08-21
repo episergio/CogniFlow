@@ -61,3 +61,5 @@ coverage
 *.db-journal
 *.db-wal
 *.db-shm
+.vercel
+.env*
