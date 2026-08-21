@@ -6,10 +6,12 @@ CogniFlow MVP es una prueba de concepto académica que demuestra cómo un sistem
 
 **Estado:** flujo completo funcional y convergente. La generación de artefactos permanece bloqueada en servidor mientras existan GAPS críticos abiertos.
 
+**Demo pública:** [https://cogniflow-ten.vercel.app](https://cogniflow-ten.vercel.app)
+
 ## 2. Links del proyecto
 
-- **Repositorio GitHub:** [Insertar Link a GitHub]
-- **Demo público (Render/Vercel):** [Insertar Link a Demo]
+- **Repositorio GitHub:** [https://github.com/episergio/CogniFlow](https://github.com/episergio/CogniFlow)
+- **Demo público (Vercel):** [https://cogniflow-ten.vercel.app](https://cogniflow-ten.vercel.app)
 - **Usuario demo:** `demo@cogniflow.app` / `Demo1234!`
 
 ## 3. Criterio de done — ✅ Verificado
